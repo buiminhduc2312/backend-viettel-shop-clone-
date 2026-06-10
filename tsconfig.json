@@ -1,0 +1,53 @@
+{
+    "compilerOptions": {
+        "module": "commonjs",
+        "esModuleInterop": true,
+        "target": "ESNext",
+        "strict": true,
+        "isolatedModules": true,
+        "useUnknownInCatchVariables": false,
+        "moduleResolution": "node",
+        "noImplicitAny": true,
+        "sourceMap": true,
+        "outDir": "dist",
+        "strictNullChecks": true,
+        "strictFunctionTypes": true,
+        "alwaysStrict": true,
+        "noUnusedLocals": true,
+        "resolveJsonModule": true,
+        "baseUrl": ".",
+        "typeRoots": [
+            "@types",
+            "./node_modules/@types"
+        ],
+        "paths": {
+            "@api/*": [
+                "src/api/*"
+            ],
+            "@worker/*": [
+                "src/worker/*"
+            ],
+            "@consumer/*": [
+                "src/consumer/*"
+            ],
+            "@biz/*": [
+                "src/biz/*"
+            ],
+            "@common/*": [
+                "src/common/*"
+            ],
+            "@config/*": [
+                "src/config/*"
+            ],
+            "@services/*": [
+                "src/services/*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*"
+    ],
+    "exclude": [
+        "node_modules"
+    ]
+}
