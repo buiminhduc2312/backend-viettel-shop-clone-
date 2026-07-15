@@ -1,19 +1,18 @@
-import { Router } from 'express';
+import express from 'express';
 import { ProductController } from './product.controller';
-import { ProductValidator } from './product.validator';
 
-const router = Router();
+const router = express.Router();
 
-// Lấy danh sách
+// [GET] Khớp với fetch("http://localhost:3001/products")
 router.get('/', ProductController.getProducts);
 
-// Thêm mới
-router.post('/', ProductValidator.validateCreateOrUpdate, ProductController.createProduct);
+// [POST] Khớp với fetch("http://localhost:3001/products", { method: "POST" })
+router.post('/', ProductController.createProduct);
 
-// Sửa
-router.put('/:id', ProductValidator.validateCreateOrUpdate, ProductController.updateProduct);
+// [PUT] Khớp với fetch("http://localhost:3001/products/:id", { method: "PUT" })
+router.put('/:id', ProductController.updateProduct);
 
-// Xóa
+// [DELETE] Khớp với fetch("http://localhost:3001/products/:id", { method: "DELETE" })
 router.delete('/:id', ProductController.deleteProduct);
 
 export default router;

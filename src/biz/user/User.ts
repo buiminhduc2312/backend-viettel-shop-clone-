@@ -31,6 +31,7 @@ const UserSchema: Schema<IUserDocument, unknown, IUser> = new Schema(
 UserSchema.plugin(mongoosePagination);
 
 // Export the model and return your User interface
-const User: PaginationModel<IUserDocument> = mongoose.model<IUserDocument, PaginationModel<IUserDocument>>('User', UserSchema);
+const User: PaginationModel<IUserDocument> =
+    (mongoose.models.User as PaginationModel<IUserDocument>) || mongoose.model<IUserDocument, PaginationModel<IUserDocument>>('User', UserSchema);
 
 export default User;

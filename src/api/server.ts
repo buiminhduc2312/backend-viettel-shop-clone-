@@ -91,7 +91,7 @@ export class ExpressServer {
         server.use(
             cors({
                 origin: '*',
-                methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+                methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
             }),
         );
         NODE_ENV !== 'development' ? server.use(morgan('tiny')) : server.use(morgan('dev'));

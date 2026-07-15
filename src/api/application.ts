@@ -5,6 +5,11 @@ import { RedisAdapter } from '@common/infrastructure/redis.adapter';
 // import { postgresAdapter } from '@common/infrastructure/postgres.adapter';
 import logger from '@common/logger';
 import { UserEvent } from '../biz/user/user.event';
+import { ensureProductSeedData } from '../services/productSeeder';
+
+// IMPORT CRONJOB
+import { initBlacklistCronjob } from '../biz/user/blacklist.cron';
+
 /**
  * Wrapper around the Node process, ExpressServer abstraction and complex dependencies such as services that ExpressServer needs.
  * When not using Dependency Injection, can be used as place for wiring together services which are dependencies of ExpressServer.
@@ -16,9 +21,12 @@ export class Application {
     public static async createApplication(): Promise<ExpressServer> {
         // await postgresAdapter.connect();
         await MongoAdapter.connect();
+        await ensureProductSeedData();
         // await RedisAdapter.connect();//
 
         Application.registerEvents();
+
+        initBlacklistCronjob();
 
         const expressServer = new ExpressServer();
         await expressServer.setup(PORT);

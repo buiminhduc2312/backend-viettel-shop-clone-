@@ -1,17 +1,27 @@
-import { Request, Response, NextFunction } from 'express';
-import { APIError } from '@common/error/api.error';
-import { ErrorCode } from '@config/errors';
+import { NextFunction, Request, Response } from 'express';
 import httpStatus from 'http-status';
-import { UNAUTHORIZED } from '@common/message.response';
 import { isValidObjectId } from 'mongoose';
-import { Jwt } from '@common/jwt';
-import { IVerifyTokenPayLoad } from './auth.type';
+import jwt from 'jsonwebtoken';
+
+import { APIError } from '@common/error/api.error';
+import { UNAUTHORIZED } from '@common/message.response';
+import { ErrorCode } from '@config/errors';
+
+import { BlacklistModel } from '../../biz/user/blacklist.model';
+
+declare module 'express-serve-static-core' {
+    interface Request {
+        userId?: string;
+        userRole?: string;
+    }
+}
 
 export class AuthMiddleware {
     public static async requireAuth(req: Request, res: Response, next: NextFunction) {
         try {
             const authHeader = req.headers.authorization;
             const token: string = (authHeader && authHeader.split(' ')[1]) as string;
+
             if (!token) {
                 throw new APIError({
                     message: UNAUTHORIZED,
@@ -20,9 +30,13 @@ export class AuthMiddleware {
                 });
             }
 
-            // Verify token
-            const decoded = await Jwt.verify<IVerifyTokenPayLoad>(token);
-            if (!decoded.payload) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as {
+                id?: string;
+                role?: string;
+                jti?: string;
+            };
+
+            if (!decoded || !decoded.id) {
                 throw new APIError({
                     message: UNAUTHORIZED,
                     status: httpStatus.UNAUTHORIZED,
@@ -30,7 +44,16 @@ export class AuthMiddleware {
                 });
             }
 
-            const isValidId = isValidObjectId(decoded.payload.id);
+            const isBlacklisted = await BlacklistModel.findOne({ token });
+            if (isBlacklisted) {
+                throw new APIError({
+                    message: 'Token da bi vo hieu hoa do dang xuat! Vui long dang nhap lai.',
+                    status: httpStatus.UNAUTHORIZED,
+                    errorCode: ErrorCode.REQUEST_UNAUTHORIZED,
+                });
+            }
+
+            const isValidId = isValidObjectId(decoded.id);
             if (!isValidId) {
                 throw new APIError({
                     message: UNAUTHORIZED,
@@ -39,9 +62,9 @@ export class AuthMiddleware {
                 });
             }
 
-            req.userId = decoded.payload.id;
+            req.userId = decoded.id;
+            req.userRole = decoded.role;
 
-            // process auth
             next();
         } catch (error) {
             next(error);
@@ -54,6 +77,17 @@ export class AuthMiddleware {
             return next();
         }
 
-        AuthMiddleware.requireAuth(req, res, next);
+        return AuthMiddleware.requireAuth(req, res, next);
+    }
+
+    public static async requireAdmin(req: Request, res: Response, next: NextFunction) {
+        if (req.userRole === 'admin' || req.userRole === 'root') {
+            return next();
+        }
+
+        return res.status(httpStatus.FORBIDDEN).json({
+            success: false,
+            message: 'Ban khong co quyen truy cap tai nguyen nay!',
+        });
     }
 }

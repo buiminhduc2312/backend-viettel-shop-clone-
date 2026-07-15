@@ -1,5 +1,6 @@
 import { Joi, schema } from 'express-validation';
 import { IResigterBody } from '@biz/user/user.type';
+import { FULL_NAME_ERROR_MESSAGE, isValidFullName } from '../../utils/fullNameValidation';
 
 export const register: schema = {
     body: Joi.object<IResigterBody, true, IResigterBody>({
@@ -20,5 +21,25 @@ export const registerPostgres: schema = {
         first_name: Joi.string().max(50).optional(),
         last_name: Joi.string().max(50).optional(),
         phone: Joi.string().max(20).optional(),
+    }),
+};
+
+export const updateProfile: schema = {
+    body: Joi.object({
+        fullName: Joi.string()
+            .required()
+            .custom((value, helpers) => {
+                if (!isValidFullName(value)) {
+                    return helpers.message({ custom: FULL_NAME_ERROR_MESSAGE });
+                }
+
+                return value.trim();
+            }),
+        // Check số điện thoại chuẩn Việt Nam
+        phone: Joi.string()
+            .pattern(/(84|0[3|5|7|8|9])+([0-9]{8})\b/)
+            .optional(),
+        // Check avatar phải là 1 đường link URL hợp lệ
+        avatar: Joi.string().uri().optional(),
     }),
 };

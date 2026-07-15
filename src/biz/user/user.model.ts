@@ -1,4 +1,5 @@
 import mongoose, { Schema, Document } from 'mongoose';
+import { Model } from 'sequelize';
 
 export interface IUser extends Document {
     email: string;
@@ -7,6 +8,7 @@ export interface IUser extends Document {
     first_name?: string;
     last_name?: string;
     phone?: string;
+    avatar?: string;
     role: string;
     createdAt: Date;
     updatedAt: Date;
@@ -20,6 +22,7 @@ const UserSchema: Schema = new Schema(
         first_name: { type: String, default: '' },
         last_name: { type: String, default: '' },
         phone: { type: String, default: '' },
+        avatar: { type: String, default: '' },
         role: { type: String, default: 'user' }, // Mặc định ai đăng ký cũng là user
     },
     {
@@ -30,3 +33,4 @@ const UserSchema: Schema = new Schema(
 
 // Tạo Model để sử dụng trong DB
 export const UserModel = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+export const UserPostgres = Model;

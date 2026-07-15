@@ -7,7 +7,7 @@ declare global {
         }
 
         interface Request {
-            userId: string | number; // Support both MongoDB (string) and PostgreSQL (number)
+            userId?: string | number; // Support both MongoDB (string) and PostgreSQL (number)
         }
     }
 }
