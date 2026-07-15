@@ -98,6 +98,8 @@ export class ExpressServer {
     }
 
     private configureRoutes(server: Express) {
+        // Nhật ký tạm thời xác nhận router chính được mount trước khi server lắng nghe.
+        console.log('API ROUTER MOUNTED');
         server.use(routes);
         server.use('/api-docs', swaggerUi.serve as any, swaggerUi.setup(swaggerDefinition, swaggerUiOptions) as any);
     }
