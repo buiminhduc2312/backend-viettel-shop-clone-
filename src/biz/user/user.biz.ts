@@ -8,6 +8,7 @@ import { UserModel } from './user.model'; // Gọi kho chứa MongoDB vừa tạ
 import { CartModel } from './cart.model';
 import { BlacklistModel } from './blacklist.model';
 import { FULL_NAME_ERROR_MESSAGE, isValidFullName } from '../../utils/fullNameValidation';
+import { JWT_SECRET } from '../../config/environment';
 
 type CartQuantityDelta = {
     productId: string;
@@ -66,7 +67,7 @@ export class UserBiz {
 
             // Ẩn password trước khi trả về
             const userObj = newUser.toObject();
-            const { password, ...userWithoutPassword } = userObj;
+            const { password: storedPassword, ...userWithoutPassword } = userObj;
 
             return userWithoutPassword;
         } catch (error: any) {
@@ -80,15 +81,24 @@ export class UserBiz {
     // =====================================
     public static async loginPostgres(credentials: any) {
         try {
+            // Chuẩn hóa email giống nhau ở lúc đặt lại và lúc đăng nhập.
+            const email = String(credentials?.email || '').trim().toLowerCase();
+            const password = String(credentials?.password || '');
+
+            if (!email || !password) {
+                throw new Error('Tài khoản hoặc mật khẩu không chính xác!');
+            }
+
             // 1. Tìm user theo email trong MongoDB
-            const user = await UserModel.findOne({ email: credentials.email });
+            const user = await UserModel.findOne({ email });
 
             if (!user) {
                 throw new Error('Tài khoản hoặc mật khẩu không chính xác!');
             }
 
             // 2. So sánh mật khẩu
-            const isMatch = await bcrypt.compare(credentials.password, user.password);
+            // So sánh mật khẩu thô với chuỗi đã băm bằng cùng thư viện bcryptjs.
+            const isMatch = await bcrypt.compare(password, user.password);
 
             if (!isMatch) {
                 throw new Error('Tài khoản hoặc mật khẩu không chính xác!');
@@ -97,13 +107,14 @@ export class UserBiz {
             // 3. Tạo Token
             const token = jwt.sign(
                 { id: user._id, email: user.email, role: user.role, jti: randomUUID() }, // MongoDB dùng _id
-                process.env.JWT_SECRET as string,
+                // Dùng cùng cấu hình JWT với toàn bộ ứng dụng để token luôn xác thực được.
+                JWT_SECRET,
                 { expiresIn: '7d' },
             );
 
             // 4. Bóc tách dữ liệu, bỏ password đi
             const userObj = user.toObject();
-            const { password, ...userWithoutPassword } = userObj;
+            const { password: storedPassword, ...userWithoutPassword } = userObj;
 
             return {
                 token,
@@ -113,6 +124,19 @@ export class UserBiz {
             console.error('🚨 LỖI ĐĂNG NHẬP MONGODB:', error);
             throw new Error(error.message);
         }
+    }
+
+    public static async resetPassword(email: string, newPassword: string) {
+        const normalizedEmail = String(email || '').trim().toLowerCase();
+        const user = await UserModel.findOne({ email: normalizedEmail });
+
+        if (!user) {
+            throw new Error('Tài khoản không tồn tại!');
+        }
+
+        // Luôn băm mật khẩu mới trước khi lưu vào MongoDB.
+        user.password = await bcrypt.hash(String(newPassword), 10);
+        await user.save();
     }
 
     public static async postRegister(userData: any) {

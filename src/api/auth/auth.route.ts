@@ -1,8 +1,13 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { AuthController } from './auth.controller';
+import { UserController } from '../user/user.controller';
 
 const router = express.Router();
+
+// Hỗ trợ cả URL auth chuẩn và URL users cũ để không làm hỏng client sau refactor.
+router.post('/login', UserController.login);
+router.post('/register', UserController.register);
 
 //  chống Spam (Rate Limit)
 const forgotPasswordLimiter = rateLimit({

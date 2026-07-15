@@ -1,12 +1,13 @@
 import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { UserModel } from '../../biz/user/user.model';
+import { UserBiz } from '../../biz/user/user.biz';
 
 // Các services đã tách lớp
 import { generateOTP } from '../../utils/otpGenerator';
 import { forgotPasswordTemplate } from '../../services/mail/templates/forgotPasswordTemplate';
 import { sendMail } from '../../services/mail/mailService';
+import { JWT_SECRET } from '../../config/environment';
 
 export class AuthController {
     // ==========================================
@@ -14,7 +15,7 @@ export class AuthController {
     // ==========================================
     public static async forgotPassword(req: Request, res: Response) {
         try {
-            const { email } = req.body;
+            const email = String(req.body?.email || '').trim().toLowerCase();
 
             const emailRegex = /^\S+@\S+\.\S+$/;
             if (!email || !emailRegex.test(email)) {
@@ -25,12 +26,18 @@ export class AuthController {
 
             // Sinh OTP và nhét vào JWT (Hạn 5 phút)
             const otp = generateOTP();
-            const resetToken = jwt.sign({ email, otp }, process.env.JWT_SECRET as string, { expiresIn: '5m' });
+            // Tạo token khôi phục bằng cùng một bí mật JWT với middleware đăng nhập.
+            const resetToken = jwt.sign({ email, otp }, JWT_SECRET, { expiresIn: '5m' });
 
             // Gửi mail nếu user tồn tại
             if (user) {
                 const { subject, html } = forgotPasswordTemplate(otp);
-                await sendMail(email, subject, html);
+                // Không làm hỏng yêu cầu khôi phục khi máy chủ email tạm thời lỗi.
+                try {
+                    await sendMail(email, subject, html);
+                } catch (mailError) {
+                    console.error('Lỗi gửi email khôi phục mật khẩu:', mailError);
+                }
             }
 
             // Trả Token về cho Frontend giữ
@@ -61,7 +68,8 @@ export class AuthController {
             // 2. Mở khóa JWT
             let payload: any;
             try {
-                payload = jwt.verify(resetToken, process.env.JWT_SECRET as string);
+                // Kiểm tra token bằng đúng cấu hình đã dùng khi phát hành token.
+                payload = jwt.verify(resetToken, JWT_SECRET);
             } catch (err: any) {
                 if (err.name === 'TokenExpiredError') {
                     return res.status(400).json({ success: false, message: 'Mã xác nhận đã hết hạn. Vui lòng yêu cầu mã mới.' });
@@ -75,16 +83,8 @@ export class AuthController {
             }
 
             // 4. Tìm User
-            const user = await UserModel.findOne({ email: payload.email });
-            if (!user) {
-                return res.status(400).json({ success: false, message: 'Tài khoản không tồn tại!' });
-            }
-
-            // 5. Cập nhật mật khẩu mới
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(newPassword, salt);
-
-            await user.save();
+            // 5. Dùng cùng service băm mật khẩu với luồng đăng ký/đăng nhập.
+            await UserBiz.resetPassword(String(payload.email), newPassword);
 
             res.status(200).json({ success: true, message: 'Đổi mật khẩu thành công!' });
         } catch (error) {
