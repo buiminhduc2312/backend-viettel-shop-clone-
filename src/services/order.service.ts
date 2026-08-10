@@ -20,23 +20,12 @@ type ReducedInventoryItem = {
 const ORDER_STATUSES: OrderStatus[] = ['pending', 'processing', 'shipping', 'completed', 'cancelled'];
 
 export class OrderService {
+    // class OrderService được sử dụng để quản lý các chức năng liên quan đến đơn hàng (Order) trong hệ thống. Nó cung cấp các phương thức để tạo đơn hàng, lấy danh sách đơn hàng, cập nhật trạng thái đơn hàng và quản lý tồn kho sản phẩm liên quan đến đơn hàng.
     public static async createOrder(userId: string, products: OrderProductInput[]) {
+        // phương thức createOrder được sử dụng để tạo một đơn hàng mới dựa trên thông tin người dùng và danh sách sản phẩm. Nó thực hiện các bước kiểm tra, tính toán tổng số tiền, kiểm tra tồn kho và tạo đơn hàng trong cơ sở dữ liệu.
         OrderService.validateUserId(userId);
         const normalizedProducts = OrderService.normalizeProducts(products);
-        const totalAmount = normalizedProducts.reduce((total, product) => total + product.price * product.quantity, 0);
-        const reservedQuantities = await OrderService.getReservedCartQuantities(userId);
-        const isFullyReserved = normalizedProducts.every((product) => (reservedQuantities.get(product.productId) ?? 0) >= product.quantity);
-
-        if (isFullyReserved) {
-            const createdOrder = await OrderRepository.createOrder({
-                userId,
-                products: normalizedProducts,
-                totalAmount,
-            });
-
-            await CartModel.findOneAndUpdate({ userId }, { items: [] }, { new: true, upsert: true }).exec();
-            return createdOrder;
-        }
+        const totalAmount = normalizedProducts.reduce((total, product) => total + product.price * product.quantity, 0); // tính tổng số tiền của đơn hàng bằng cách nhân giá sản phẩm với số lượng và cộng dồn vào tổng.
 
         await OrderService.ensureAvailableInventory(normalizedProducts);
         const reducedProducts = await OrderService.reduceInventory(normalizedProducts);
@@ -61,8 +50,11 @@ export class OrderService {
         return OrderRepository.getOrdersByUser(userId);
     }
 
-    public static getAllOrders() {
-        return OrderRepository.getAllOrders();
+    public static getAllOrders(status?: OrderStatus) {
+        if (status && !ORDER_STATUSES.includes(status as OrderStatus)) {
+            throw new Error('Trang thai don hang khong hop le!');
+        }
+        return OrderRepository.getAllOrders(status);
     }
 
     public static getOrderById(orderId: string) {
@@ -135,28 +127,6 @@ export class OrderService {
         });
     }
 
-    private static async getReservedCartQuantities(userId: string) {
-        const cart = await CartModel.findOne({ userId }).lean().exec();
-        const quantityMap = new Map<string, number>();
-
-        if (!Array.isArray(cart?.items)) {
-            return quantityMap;
-        }
-
-        cart.items.forEach((item: any) => {
-            const productId = String(item?.product?.id ?? item?.product?._id ?? '');
-            const quantity = Number(item?.quantity ?? 0);
-
-            if (!productId || !Number.isInteger(quantity) || quantity <= 0) {
-                return;
-            }
-
-            quantityMap.set(productId, (quantityMap.get(productId) ?? 0) + quantity);
-        });
-
-        return quantityMap;
-    }
-
     private static async ensureAvailableInventory(products: ReturnType<typeof OrderService.normalizeProducts>) {
         const productIds = products.map((product) => product.productId);
         const productDocuments = await ProductRepository.findProductsByIds(productIds);
@@ -179,30 +149,28 @@ export class OrderService {
         const productIds = products.map((product) => product.productId);
         const productDocuments = await ProductRepository.findProductsByIds(productIds);
         const productMap = new Map(productDocuments.map((product: any) => [String(product._id), product]));
+
         const reducedProducts: ReducedInventoryItem[] = [];
 
         try {
             for (const product of products) {
                 const productDocument = productMap.get(String(product.productId));
+
                 const nextStock = (productDocument?.stock ?? 0) - product.quantity;
                 const nextStatus = nextStock > 0 ? 'available' : 'unavailable';
+
                 const updatedProduct = await ProductRepository.updateProductInventory(product.productId, product.quantity, nextStatus);
 
                 if (!updatedProduct) {
-                    throw new Error(`San pham ${product.name} khong du ton kho!`);
+                    throw new Error(`San pham ${product.name} khong du ton kho !`);
                 }
-
-                reducedProducts.push({
-                    productId: product.productId,
-                    quantity: product.quantity,
-                });
+                reducedProducts.push({ productId: product.productId, quantity: product.quantity });
             }
+            return reducedProducts;
         } catch (error) {
             await OrderService.restoreInventory(reducedProducts);
             throw error;
         }
-
-        return reducedProducts;
     }
 
     private static async restoreInventory(products: ReducedInventoryItem[]) {

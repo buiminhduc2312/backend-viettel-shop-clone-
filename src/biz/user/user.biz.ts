@@ -1,26 +1,18 @@
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import jwt from 'jsonwebtoken';
-import mongoose from 'mongoose';
-import { CustomError } from '@common/error/custom.error';
-import { ProductRepository } from '../../repositories/product.repository';
-import { UserModel } from './user.model'; // Gọi kho chứa MongoDB vừa tạo ở trên
+import { UserModel } from './user.model'; // Gọi kho chứa MongoDB
 import { CartModel } from './cart.model';
 import { BlacklistModel } from './blacklist.model';
 import { FULL_NAME_ERROR_MESSAGE, isValidFullName } from '../../utils/fullNameValidation';
 import { JWT_SECRET } from '../../config/environment';
-
-type CartQuantityDelta = {
-    productId: string;
-    quantity: number;
-};
 
 export class UserBiz {
     // =====================================
     // 1. HÀM ĐĂNG KÝ (Đã chuyển sang MongoDB)
     // =====================================
     public static async registerPostgres(userData: any) {
-        // Giữ tên cũ để Controller khỏi giật mình
+        // Giữ tên cũ để tránh ảnh hưởng đến các phần khác của ứng dụng, nhưng thực chất là đang dùng MongoDB.
         try {
             const rawFullName = String(
                 userData.fullName || userData.name || [userData.firstName || userData.first_name, userData.lastName || userData.last_name].filter(Boolean).join(' '),
@@ -71,7 +63,7 @@ export class UserBiz {
 
             return userWithoutPassword;
         } catch (error: any) {
-            console.error('🚨 LỖI TỪ MONGODB:', error);
+            console.error(' LỖI TỪ MONGODB:', error);
             throw new Error(error.message);
         }
     }
@@ -82,7 +74,9 @@ export class UserBiz {
     public static async loginPostgres(credentials: any) {
         try {
             // Chuẩn hóa email giống nhau ở lúc đặt lại và lúc đăng nhập.
-            const email = String(credentials?.email || '').trim().toLowerCase();
+            const email = String(credentials?.email || '')
+                .trim()
+                .toLowerCase();
             const password = String(credentials?.password || '');
 
             if (!email || !password) {
@@ -121,13 +115,15 @@ export class UserBiz {
                 user: userWithoutPassword,
             };
         } catch (error: any) {
-            console.error('🚨 LỖI ĐĂNG NHẬP MONGODB:', error);
+            console.error(' LỖI ĐĂNG NHẬP MONGODB:', error);
             throw new Error(error.message);
         }
     }
 
     public static async resetPassword(email: string, newPassword: string) {
-        const normalizedEmail = String(email || '').trim().toLowerCase();
+        const normalizedEmail = String(email || '')
+            .trim()
+            .toLowerCase();
         const user = await UserModel.findOne({ email: normalizedEmail });
 
         if (!user) {
@@ -167,127 +163,16 @@ export class UserBiz {
         return cart ? cart.items : [];
     }
 
-    private static getCartItemProductId(item: any) {
-        return String(item?.product?.id ?? item?.product?._id ?? item?.productId ?? '').trim();
-    }
-
-    private static getCartItemQuantity(item: any) {
-        const quantity = Number(item?.quantity);
-
-        if (!Number.isInteger(quantity) || quantity < 0) {
-            throw CustomError.CustomMessage('Invalid cart quantity');
-        }
-
-        return quantity;
-    }
-
-    private static buildCartQuantityMap(cartItems: any[]) {
-        const quantityMap = new Map<string, number>();
-
-        if (!Array.isArray(cartItems)) {
-            throw CustomError.CustomMessage('Invalid cart items');
-        }
-
-        cartItems.forEach((item) => {
-            const productId = UserBiz.getCartItemProductId(item);
-            const quantity = UserBiz.getCartItemQuantity(item);
-
-            if (!productId) {
-                throw CustomError.CustomMessage('Invalid cart product');
-            }
-
-            quantityMap.set(productId, (quantityMap.get(productId) ?? 0) + quantity);
-        });
-
-        return quantityMap;
-    }
-
-    private static getCartQuantityDeltas(currentCartItems: any[], nextCartItems: any[]) {
-        const currentQuantities = UserBiz.buildCartQuantityMap(currentCartItems);
-        const nextQuantities = UserBiz.buildCartQuantityMap(nextCartItems);
-        const productIds = new Set([...currentQuantities.keys(), ...nextQuantities.keys()]);
-
-        return Array.from(productIds)
-            .map((productId) => ({
-                productId,
-                quantity: (nextQuantities.get(productId) ?? 0) - (currentQuantities.get(productId) ?? 0),
-            }))
-            .filter((delta) => delta.quantity !== 0);
-    }
-
-    private static async reserveProductStock(delta: CartQuantityDelta, session: mongoose.ClientSession) {
-        console.log('=== RESERVE STOCK ===');
-        console.log('delta:', delta);
-
-        const product = await ProductRepository.findProductById(delta.productId, session);
-
-        console.log('product:', product?.name);
-        console.log('stock before:', product?.stock);
-
-        if (!product) {
-            throw CustomError.CustomMessage('Product not found');
-        }
-
-        const currentStock = Number(product.stock ?? 0);
-
-        if (currentStock <= 0) {
-            throw CustomError.CustomMessage('Product is out of stock');
-        }
-
-        if (delta.quantity > currentStock) {
-            throw CustomError.CustomMessage('Not enough stock');
-        }
-
-        const nextStock = currentStock - delta.quantity;
-        const nextStatus = nextStock > 0 ? 'available' : 'unavailable';
-        const updatedProduct = await ProductRepository.updateProductInventory(delta.productId, delta.quantity, nextStatus, session);
-
-        console.log('stock updated');
-        if (!updatedProduct) {
-            throw CustomError.CustomMessage('Not enough stock');
-        }
-    }
-
-    private static async restoreProductStock(delta: CartQuantityDelta, session: mongoose.ClientSession) {
-        const product = await ProductRepository.findProductById(delta.productId, session);
-
-        if (!product) {
-            return;
-        }
-
-        const quantityToRestore = Math.abs(delta.quantity);
-        const nextStock = Number(product.stock ?? 0) + quantityToRestore;
-        const nextStatus = nextStock > 0 ? 'available' : 'unavailable';
-        await ProductRepository.restoreProductInventory(delta.productId, quantityToRestore, nextStatus, session);
-    }
-
     public static async updateCart(userId: string, cartItems: any[]) {
-        console.log('=== UPDATE CART ===');
-        console.log(JSON.stringify(cartItems, null, 2));
-        const session = await mongoose.startSession();
-        let updatedCartItems: any[] = [];
-
-        try {
-            await session.withTransaction(async () => {
-                const currentCart = await CartModel.findOne({ userId }).session(session).lean().exec();
-                const deltas = UserBiz.getCartQuantityDeltas(currentCart?.items ?? [], cartItems);
-
-                for (const delta of deltas) {
-                    if (delta.quantity > 0) {
-                        await UserBiz.reserveProductStock(delta, session);
-                    } else {
-                        await UserBiz.restoreProductStock(delta, session);
-                    }
-                }
-
-                const cart = await CartModel.findOneAndUpdate({ userId }, { items: cartItems }, { new: true, upsert: true, session });
-                updatedCartItems = cart ? cart.items : [];
-            });
-        } finally {
-            await session.endSession();
-        }
-
-        return updatedCartItems;
+        const cart = await CartModel.findOneAndUpdate(
+            { userId },
+            { items: cartItems },
+            {
+                new: true,
+                upsert: true,
+            },
+        );
+        return cart ? cart.items : [];
     }
 
     public static async logout(token: string) {

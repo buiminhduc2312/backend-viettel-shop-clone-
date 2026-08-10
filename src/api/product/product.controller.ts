@@ -83,6 +83,8 @@ export class ProductController {
             res.json({
                 success: true,
                 message: 'Lấy dữ liệu thành công',
+                // Giữ cả hai tên trường để tương thích với các phiên bản frontend sau refactor.
+                products,
                 data: products,  // danh sách sản phẩm 
                 pagination: {   // thống kê phân trang 
                     page: currentPage,
@@ -98,6 +100,23 @@ export class ProductController {
         } catch (error) {
             console.error('Lỗi lấy sản phẩm:', error);
             res.status(500).json({ success: false, message: 'Lỗi Server!' });
+        }
+    }
+
+    public static async getProductById(req: Request, res: Response) {
+        try {
+            // Lấy sản phẩm theo ID để trang chi tiết không bị gọi nhầm vào danh sách.
+            const product = await Product.findById(req.params.id).lean();
+
+            if (!product) {
+                return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm' });
+            }
+
+            // Trả về payload thống nhất với các API sản phẩm còn lại.
+            return res.json({ success: true, data: product, product });
+        } catch (error) {
+            console.error('Lỗi lấy chi tiết sản phẩm:', error);
+            return res.status(500).json({ success: false, message: 'Lỗi Server!' });
         }
     }
 

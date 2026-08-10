@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 
 import { OrderService } from '../services/order.service';
 
+type OrderStatus = 'pending' | 'processing' | 'shipping' | 'completed' | 'cancelled';
+
 const isBadRequestError = (error: unknown) => {
     if (!(error instanceof Error)) {
         return false;
@@ -19,7 +21,8 @@ const isBadRequestError = (error: unknown) => {
 export class OrderController {
     public static async getAllOrders(req: Request, res: Response) {
         try {
-            const orders = await OrderService.getAllOrders();
+            const status = req.query.status as OrderStatus | undefined;
+            const orders = await OrderService.getAllOrders(status);
 
             return res.status(200).json({
                 success: true,

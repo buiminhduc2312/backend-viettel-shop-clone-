@@ -1,6 +1,6 @@
 import mongoose, { Schema } from 'mongoose';
 
-const blacklistSchema = new Schema(
+const blacklistSchema = new Schema( 
     {
         token: { type: String, required: true, unique: true },
     },
