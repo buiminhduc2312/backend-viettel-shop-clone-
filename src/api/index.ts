@@ -1,5 +1,5 @@
-import { ExpressServer } from '../src/api/server';
-import { MongoAdapter } from '../src/common/infrastructure/mongo.adapter';
+import { ExpressServer } from './server';
+import { MongoAdapter } from '../common/infrastructure/mongo.adapter';
 
 let app: any;
 
