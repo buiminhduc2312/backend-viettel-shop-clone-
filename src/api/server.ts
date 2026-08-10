@@ -25,14 +25,16 @@ export class ExpressServer {
     private server?: Express;
     private httpServer?: Server;
 
-    public async setup(port: number): Promise<Express> {
+    public async setup(port?: number): Promise<Express> {
         const server = express();
         this.setupStandardMiddlewares(server);
         this.setupSecurityMiddlewares(server);
         this.configureRoutes(server);
         this.setupErrorHandlers(server);
 
-        this.httpServer = this.listen(server, port);
+        if (port !== undefined) {
+            this.httpServer = this.listen(server, port);
+        }
         this.server = server;
         return this.server;
     }
