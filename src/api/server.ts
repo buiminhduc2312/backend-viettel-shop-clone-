@@ -1,15 +1,15 @@
 import express, { Express } from 'express';
 import { Server } from 'http';
 import helmet from 'helmet';
-import routes from '@api/router';
-import logger from '@common/logger';
+import routes from './router';
+import logger from '../common/logger';
 import morgan from 'morgan';
-import { NODE_ENV } from '@config/environment';
-import { ResponseMiddleware } from '@api/response.middleware';
+import { NODE_ENV } from '../config/environment';
+import { ResponseMiddleware } from './response.middleware';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
-import { swaggerDefinition } from '@config/swagger';
-import { swaggerUiOptions } from '@config/swagger';
+import { swaggerDefinition } from '../config/swagger';
+import { swaggerUiOptions } from '../config/swagger';
 
 // eslint-disable-next-line @typescript-eslint/ban-types
 express.response.sendJson = function (data: object) {
