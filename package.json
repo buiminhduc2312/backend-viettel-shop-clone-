@@ -6,7 +6,7 @@
     "author": "HoangPh <hoang31297@gmail.com>",
     "private": true,
     "scripts": {
-        "build": "tsc && tsc-alias",
+        "build": "npm run clean && tsc && tscpaths -p tsconfig.json -s ./src -o ./dist",
         "clean": "rimraf dist",
         "dev": "nodemon src/index.ts",
         "seed:products": "ts-node -r tsconfig-paths/register scripts/seedProducts.ts",
