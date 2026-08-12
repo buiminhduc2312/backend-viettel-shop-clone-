@@ -84,6 +84,6 @@
         "typescript": "^4.6.2"
     },
     "_moduleAliases": {
-        "@api": "src/api"
+        "@api": "./dist/api"
     }
 }
