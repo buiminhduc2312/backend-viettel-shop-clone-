@@ -1,3 +1,4 @@
+import 'module-alias/register';
 import { Application } from '@api/application';
 import logger from '@common/logger';
 
