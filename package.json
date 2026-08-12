@@ -6,7 +6,7 @@
     "author": "HoangPh <hoang31297@gmail.com>",
     "private": true,
     "scripts": {
-        "build": "npm run clean && tsc && tscpaths -p tsconfig.json -s ./src -o ./dist",
+        "build": "tsc && tsc-alias",
         "clean": "rimraf dist",
         "dev": "nodemon src/index.ts",
         "seed:products": "ts-node -r tsconfig-paths/register scripts/seedProducts.ts",
@@ -76,6 +76,7 @@
         "rimraf": "^3.0.2",
         "sequelize-cli": "^6.6.3",
         "ts-node": "^10.7.0",
+        "tsc-alias": "^1.9.1",
         "tsconfig-paths": "^3.14.0",
         "tscpaths": "^0.0.9",
         "tslint": "^6.1.3",
