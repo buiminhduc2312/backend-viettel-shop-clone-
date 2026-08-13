@@ -6,12 +6,12 @@ ADD package.json package-lock.json* /app/
 RUN npm install
 
 ADD . /app
-RUN yarn build
+RUN npm run build
 
 ARG NODE_ENV
 ENV NODE_ENV $NODE_ENV
 
-RUN yarn --pure-lockfile
+RUN npm prune --production
 
 FROM node:18-alpine
 
