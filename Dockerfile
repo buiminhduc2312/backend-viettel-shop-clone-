@@ -1,4 +1,4 @@
-FROM node:18-alpine AS builder
+FROM node:20-alpine
 
 WORKDIR /app
 
@@ -13,13 +13,14 @@ ENV NODE_ENV $NODE_ENV
 
 RUN npm prune --production
 
-FROM node:18-alpine
+FROM node:20-alpine
 
 EXPOSE 3000
 
 WORKDIR /app
 
-# install curl
-RUN apk --no-cache add curl && rm -rf /var/cache/apk/*
+COPY --from=0 /app/dist ./dist
+COPY --from=0 /app/node_modules ./node_modules
+COPY --from=0 /app/package.json ./package.json
 
-COPY --from=builder /app .
+CMD ["npm", "run", "start"]
