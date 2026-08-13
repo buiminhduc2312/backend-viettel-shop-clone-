@@ -22,5 +22,6 @@ WORKDIR /app
 COPY --from=0 /app/dist ./dist
 COPY --from=0 /app/node_modules ./node_modules
 COPY --from=0 /app/package.json ./package.json
+COPY --from=0 /app/.env.example ./.env.example
 
 CMD ["node", "dist/index.js"]
